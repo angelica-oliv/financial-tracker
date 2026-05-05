@@ -1,17 +1,51 @@
 # Tutorial 02: Data Layer - Firebase Integration
 
-Integrating cloud storage with Firestore while maintaining a clean architecture.
+This tutorial explains how we integrate Firebase Firestore while maintaining a clean, pragmatic architecture.
 
-## Direct Domain Persistence
-While DTOs (Data Transfer Objects) are often used to decouple the database from the domain, we chose a **Pragmatic Approach**:
-1. Provide **default values** in the `Transaction` domain model.
-2. Firestore can then use the domain model directly via `toObject()` and `set()`.
-3. This reduces boilerplate in the early stages of development.
+## 1. Firebase Configuration
 
-## The Remote Data Source
-The `TransactionRemoteDataSource` handles the "how" of data fetching:
-- Use `kotlinx-coroutines-play-services` to turn Firebase Task callbacks into `suspend` functions using `.await()`.
-- Use `.snapshots()` to return a `Flow` for real-time updates.
+### Step 1: Module Dependencies
+In `:core:network/build.gradle.kts`, we use the Firebase BoM to manage versions and apply the `google-services` plugin in the `:app` module.
+```kotlin
+dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+}
+```
 
-## UI Separation: The Content Class
-To prevent the UI from being tightly coupled to the raw data (like `Long` cents), we map the `Transaction` to a `TransactionContent` class in the UI layer. This handles formatting (e.g., "$10.50") and UI logic (e.g., colors and icons).
+## 2. Remote Data Source
+
+### Step 2: Implementation with Flow
+The `TransactionRemoteDataSourceImpl` uses `snapshots()` to return a real-time `Flow` of transaction lists.
+```kotlin
+class TransactionRemoteDataSourceImpl @Inject constructor(
+    private val firestore: FirebaseFirestore
+) : TransactionRemoteDataSource {
+    override fun getTransactions(userId: String): Flow<List<Transaction>> {
+        return firestore.collection("users")
+            .document(userId)
+            .collection("transactions")
+            .snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(Transaction::class.java)
+            }
+    }
+
+    override suspend fun addTransaction(transaction: Transaction) {
+        firestore.collection("users")
+            .document("debug_id")
+            .collection("transactions")
+            .document(transaction.id)
+            .set(transaction)
+    }
+}
+```
+
+## 3. Pragmatic Persistence
+
+### Step 3: Direct Domain Mapping
+By providing default values in the `Transaction` domain model, Firestore can instantiate the class directly using `toObjects(Transaction::class.java)`. This avoids the boilerplate of creating separate DTO (Data Transfer Object) classes during early development.
+
+---
+Next: [UI & Design System Integration](03-ui-and-design-system.md)

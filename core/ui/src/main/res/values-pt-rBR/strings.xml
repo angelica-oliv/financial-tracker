@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today">Hoje</string>
+    <string name="yesterday">Ontem</string>
+    <string name="date_with_prefix">%1$s, %2$s</string>
+</resources>

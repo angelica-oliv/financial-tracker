@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "133362524133",
+    "project_id": "financial-tracking-a1799",
+    "storage_bucket": "financial-tracking-a1799.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133362524133:android:083dcc512dc78839f0990c",
+        "android_client_info": {
+          "package_name": "com.ao.financialtracking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "GOOGLE_API_KEY_PLACEHOLDER"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

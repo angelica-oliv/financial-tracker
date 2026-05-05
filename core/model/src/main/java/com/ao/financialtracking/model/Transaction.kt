@@ -14,12 +14,12 @@ import com.squareup.moshi.JsonClass
  */
 @JsonClass(generateAdapter = true)
 data class Transaction(
-    val id: String,
-    val value: Long,
-    val currency: String,
-    val type: TransactionType,
-    val timestamp: Long,
-    val category: String
+    val id: String = "",
+    val value: Long = 0,
+    val currency: String = "USD",
+    val type: TransactionType = TransactionType.EXPENSE,
+    val timestamp: Long = 0,
+    val category: String = "Shopping - Clothing"
 )
 
 enum class TransactionType {

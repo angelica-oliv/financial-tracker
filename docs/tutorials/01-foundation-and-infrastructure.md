@@ -4,41 +4,52 @@ This tutorial covers the initial setup of the project, including modularization 
 
 ## 1. Modularization & Parallel Compilation
 
-As projects grow, build times increase and code becomes tangled. Modularization solves this by breaking the project into smaller, independent units.
+Modularization breaks the project into independent units. This allows Gradle to use its **Dependency Graph** to compile modules simultaneously.
 
-### How Parallel Compilation Works
-In a monolithic project, Gradle treats the entire codebase as one large unit. This means the compilation process is largely sequential; even if you have a 16-core processor, much of that power sits idle because the tasks must be done one after another.
+### Step 1: Version Catalog (`gradle/libs.versions.toml`)
+We centralize all versions and libraries here.
+```toml
+[versions]
+agp = "9.2.0"
+kotlin = "2.3.21"
+hilt = "2.59.2"
+moshi = "1.15.2"
 
-In a modular project, Gradle analyzes the **Dependency Graph**. This graph identifies which modules are independent of each other. 
+[libraries]
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+moshi = { group = "com.squareup.moshi", name = "moshi", version.ref = "moshi" }
+moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshi" }
 
-**The Multi-Core Advantage:**
-- If `:feature:dashboard` and `:feature:settings` both depend on `:core:ui`, but do **not** depend on each other, Gradle will spin up separate "workers" to compile them **simultaneously** on different CPU cores.
-- This transforms your build process from a single-file line into a multi-lane highway.
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+```
 
-**Benefits:**
-- **Reduced "Wall Clock" Time**: Total build time is determined by the longest path in your dependency graph (the "critical path"), rather than the sum of every single module's build time.
-- **Incremental Builds**: Gradle's build cache works at the module level. If you modify a feature module, only that module and its consumers (like `:app`) are recompiled. Independent modules like `:core:network` are pulled directly from the cache, saving minutes of developer time every day.
+### Step 2: Root Plugin Management (`build.gradle.kts`)
+We use `apply false` to define versions at the root without applying them to the root project itself.
+```kotlin
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.hilt.android) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+}
+```
 
-### Our Strategy
-- `:app`: The entry point and glue for all modules.
-- `:core:model`: Pure Kotlin module for domain models (no Android dependencies).
-- `:core:network`: Infrastructure for data fetching (Firebase/Moshi).
-- `:core:ui`: Common design system components.
-- `:feature:*`: Independent modules for specific app features.
-
----
+> **Important**: Starting in Kotlin 2.0, the `kotlin-compose` compiler plugin is required when `compose = true` is enabled in any module.
 
 ## 2. Domain Modeling & Financial Precision
 
-We represent money using `Long` to avoid rounding errors common with `Double` or `Float`.
-- `$10.50` is stored as `1050` (cents).
-- **KDoc**: Always document the units (e.g., "value in cents") to ensure clarity across the team.
-
+### Step 3: Pure Kotlin Model (`:core:model`)
+We use `Long` for cents to avoid rounding errors. Providing default values allows Firestore to instantiate the class automatically.
 ```kotlin
 @JsonClass(generateAdapter = true)
 data class Transaction(
     val id: String = "",
-    val value: Long = 0L,
+    val value: Long = 0L, // Store as cents
     val currency: String = "USD",
     val type: TransactionType = TransactionType.EXPENSE,
     val timestamp: Long = 0L,
@@ -46,15 +57,29 @@ data class Transaction(
 )
 ```
 
----
-
 ## 3. Infrastructure: Moshi & Hilt
 
-### Moshi with KSP (No Reflection)
-We use **KSP (Kotlin Symbol Processing)** to generate JSON adapters at compile time. This is faster than reflection (`moshi-kotlin`) and works better with R8/ProGuard minification.
+### Step 4: Network Infrastructure (`:core:network`)
+**NetworkModule.kt:**
+We use a companion object within an abstract class to support both `@Binds` (for interfaces) and `@Provides` (for external dependencies).
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class NetworkModule {
+    @Binds
+    @Singleton
+    abstract fun bindTransactionRemoteDataSource(
+        impl: TransactionRemoteDataSourceImpl
+    ): TransactionRemoteDataSource
 
-### Hilt for Dependency Injection
-Hilt provides a standard way to incorporate Dagger DI into an Android app.
-- **`@HiltAndroidApp`**: Required on your `Application` class.
-- **Centralized Modules**: We use `:core:network` to provide singletons like `Moshi` and `FirebaseFirestore` so they are consistent throughout the app.
-- **Plugin Management**: Plugins are defined in `libs.versions.toml` and the root `build.gradle.kts` with `apply false` to centralize versions without applying them to the root project itself.
+    companion object {
+        @Provides
+        @Singleton
+        fun provideMoshi(): Moshi = Moshi.Builder().build()
+        
+        @Provides
+        @Singleton
+        fun provideFirestore(): FirebaseFirestore = Firebase.firestore
+    }
+}
+```

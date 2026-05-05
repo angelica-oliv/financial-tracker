@@ -25,5 +25,6 @@ Build a modern, modular Android application from scratch following professional 
 - **KSP Over KAPT**: Prefer KSP for build performance.
 - **Pragmatic Persistence**: Use Domain models directly with Firestore by providing default values (no DTOs unless strictly necessary for complex mapping).
 - **UI Decoupling**: Map Domain models to `Content` classes in the UI layer to keep Composables stable and formatting-free.
+- **Design Alignment**: Use the `DESIGN.md` file in the root for all design tokens (colors, spacing, etc.). This project supports the **Stitch MCP server** for automated design-to-code syncing.
 - **Documentation**: Keep the `docs/` folder updated with tutorial-style explanations for major architectural changes.
 - **Licensing**: Apache License 2.0.
